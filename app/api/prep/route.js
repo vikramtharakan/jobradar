@@ -38,7 +38,7 @@ export async function POST(req) {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-5-20251001",
+          model: "claude-haiku-4-5-20251001",
           max_tokens: 1500,
           system: `${CONTEXT}\nYou are an expert ML/DE interview coach. Be direct, technical, senior-level. Explain concepts clearly, work through problems step by step. Use code examples where helpful (use plain text code blocks with triple backticks).`,
           messages: messages || [{ role: "user", content: topic }]
@@ -139,7 +139,7 @@ verdict must be one of: Strong, Good, Needs Work, Weak`;
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5-20251001",
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 2000,
         messages: [{ role: "user", content: prompt }]
       })
