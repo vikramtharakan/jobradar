@@ -13,12 +13,54 @@ const JOB_BOARDS = [
 ];
 
 const DEFAULT_JOBS = [
-  { id: "1", title: "Senior ML Engineer", company: "Cohere", board: "Wellfound", url: "https://wellfound.com", salary: "$210K–$240K", remote: true, tags: ["LLMs", "Python", "NLP", "Distributed Systems"], description: "Build production ML infrastructure for LLM training and serving at scale. Embedding pipelines, fine-tuning workflows, and retrieval systems for enterprise customers.", industry: "AI / Dev Tools", stage: "Series C" },
-  { id: "2", title: "Senior Data Engineer", company: "Weights & Biases", board: "ai-jobs.net", url: "https://ai-jobs.net", salary: "$195K–$225K", remote: true, tags: ["Spark", "Kafka", "Python", "AWS", "ETL"], description: "Own data pipelines powering the MLOps platform used by tens of thousands of ML teams. Design scalable ingestion systems.", industry: "MLOps / Dev Tools", stage: "Series C" },
-  { id: "3", title: "ML Platform Engineer", company: "Hugging Face", board: "Remotive", url: "https://remotive.com", salary: "$200K–$230K", remote: true, tags: ["Transformers", "Python", "NLP", "Kubernetes"], description: "Work on infrastructure for model hosting and inference at the leading open-source AI company.", industry: "AI / Open Source", stage: "Series D" },
-  { id: "4", title: "Senior ML Engineer – NLP & Search", company: "Glean", board: "YC Jobs", url: "https://www.workatastartup.com", salary: "$215K–$245K", remote: true, tags: ["NLP", "Elasticsearch", "LLMs", "Graph", "Python"], description: "Build NLP and semantic search systems for enterprise knowledge retrieval. Entity extraction, document understanding, LLM-augmented search.", industry: "Enterprise AI", stage: "Series E" },
-  { id: "5", title: "Staff Data Engineer", company: "Notion", board: "Built In NYC", url: "https://builtin.com", salary: "$220K–$250K", remote: true, tags: ["Spark", "Kafka", "Python", "Data Modeling"], description: "Lead data infrastructure for one of the fastest-growing productivity tools. Own core pipelines, drive architectural decisions.", industry: "Productivity / SaaS", stage: "Late Stage" },
-  { id: "6", title: "Senior ML Engineer – Recommendations", company: "Replit", board: "Wellfound", url: "https://wellfound.com", salary: "$190K–$220K", remote: true, tags: ["Python", "Deep Learning", "NLP", "Recommendations"], description: "Build ML systems for code recommendations and AI pair programming for millions of developers. Small team, high ownership.", industry: "Dev Tools", stage: "Series B" },
+  {
+    id: "1", title: "Machine Learning Engineer – NLP", company: "Quora", board: "Wellfound",
+    url: "https://wellfound.com/jobs/2831208-machine-learning-engineer-nlp-remote",
+    salary: "$120K–$275K", remote: true,
+    tags: ["NLP", "Python", "ML Systems", "Data Pipelines", "Feature Engineering"],
+    description: "Take end-to-end ownership of ML systems — data pipelines, feature engineering, candidate extraction, model training, and production integration. Work on NLP and language modeling across Quora and Poe platforms. Remote-first company, coordination hours Mon-Fri 9am-3pm PT.",
+    industry: "Consumer / Knowledge", stage: "Late Stage Private"
+  },
+  {
+    id: "2", title: "Senior ML Engineer – NLP & Search", company: "Chartbeat / Metadata Team", board: "Greenhouse",
+    url: "https://job-boards.greenhouse.io/chartbeatinc/jobs/5031517007",
+    salary: "Not listed", remote: true,
+    tags: ["Spark", "Elasticsearch", "Kafka", "Python", "NLP", "GraphQL"],
+    description: "Work on video metadata, API infrastructure, and MCP (Model Context Protocol). Core stack: Python, Spark, Elasticsearch, Kafka for big data processing. End-to-end feature implementation, big-data infrastructure, and API systems. Cross-functional team with engineers, designers, and data scientists.",
+    industry: "Media Analytics / SaaS", stage: "Growth"
+  },
+  {
+    id: "3", title: "Senior Data Engineer – Kafka Streaming & Spark", company: "Massive Rocket", board: "Himalayas",
+    url: "https://himalayas.app/companies/massive-rocket/jobs/senior-data-engineer-kafka",
+    salary: "Not listed", remote: true,
+    tags: ["Kafka", "Spark", "Flink", "Kubernetes", "Terraform", "Streaming"],
+    description: "Architect Kafka topics, partitions, and compaction. Build ingestion with Kafka Connect/Debezium. Implement stream processing (Kafka Streams/ksqlDB/Flink/Spark). Enforce schemas via Schema Registry (Avro/Protobuf). Manage CI/CD, IaC (Terraform/Helm). 6+ years DE experience, 3+ years Kafka in production required.",
+    industry: "Data / Consulting", stage: "Growth"
+  },
+  {
+    id: "4", title: "Sr. Machine Learning Engineer (LLM)", company: "Collinear AI", board: "Wellfound",
+    url: "https://wellfound.com/jobs/2952888-sr-machine-learning-engineer-llm",
+    salary: "Competitive + equity", remote: true,
+    tags: ["LLMs", "RLHF", "NLP", "Python", "PyTorch", "Transformers"],
+    description: "Well-funded stealth AI startup (team from Stanford, Hugging Face, Salesforce) focused on AI Alignment and customization. Fine-tune open-source LLMs for enterprise use cases. Work on SFT and RLHF pipelines. Primarily in-person in Mountain View with remote flexibility — verify remote policy before applying.",
+    industry: "AI Alignment / LLMs", stage: "Early Stage"
+  },
+  {
+    id: "5", title: "Senior ML Engineer – Search & Relevance", company: "Zeals", board: "Greenhouse",
+    url: "https://job-boards.greenhouse.io/zeals/jobs/5337392004",
+    salary: "Not listed", remote: true,
+    tags: ["Elasticsearch", "NLP", "Python", "ML", "GCP", "Kubernetes", "Qdrant"],
+    description: "Design and optimize search algorithms using Elasticsearch/Solr/Lucene. Integrate AI/ML models for semantic search and NLP-based relevance improvements. Build high-performance indexing and query processing systems. Stack: GCP, Kubernetes, MongoDB, Elasticsearch, Qdrant. 5+ years search engineering required. Note: Japanese proficiency a plus but not required.",
+    industry: "Conversational AI / SaaS", stage: "Growth"
+  },
+  {
+    id: "6", title: "Senior Software Engineer – Data (Elasticsearch + Spark)", company: "Vannevar Labs", board: "Greenhouse",
+    url: "https://job-boards.greenhouse.io/vannevarlabs/jobs/4890769007",
+    salary: "$160K–$210K + equity", remote: true,
+    tags: ["Elasticsearch", "Python", "AWS", "Postgres", "Data Engineering"],
+    description: "Work on search infrastructure and data engineering at a well-funded defense-adjacent tech company. Stack: Elasticsearch/OpenSearch, Postgres, AWS, Python. Note: requires active security clearance or ability to obtain one — flagged as gov-adjacent, score adjusted accordingly.",
+    industry: "Defense Tech", stage: "Series C"
+  },
 ];
 
 const STATUSES = ["Saved", "Applied", "Phone Screen", "Interview", "Offer", "Pass"];
