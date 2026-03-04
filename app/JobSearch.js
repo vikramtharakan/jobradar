@@ -272,7 +272,7 @@ function JobCard({ job, analysis, isLoading, tracked, likes, passes, onTrack, on
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             {job.url && <a href={job.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
               style={{ background: "#6366f1", color: "white", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
-              View on {job.board || "board"} →
+              View on {job.board || "board"}{job.posted ? ` · ${job.posted}` : ""} →
             </a>}
             {!tracked
               ? <button onClick={e => { e.stopPropagation(); onTrack(job.id); }} style={{ background: "transparent", border: "1px solid #334155", color: "#94a3b8", borderRadius: 6, padding: "8px 16px", fontSize: 12, cursor: "pointer" }}>+ Track this job</button>
@@ -434,13 +434,43 @@ export default function JobSearch() {
     passed: currentPasses.map(p => { const j = currentJobs.find(x => x.id === p.id); return j ? { title: j.title, company: j.company, reason: p.reasons?.join(", ") } : null; }).filter(Boolean),
   });
 
+  const [fetching, setFetching] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
+
   const scanJobs = async () => {
     setHasScanned(true);
+    setFetchError(null);
     const now = new Date(); setLastScan(now); lsSave("vt-last-scan", now.toISOString());
-    const initLoad = {}; jobs.forEach(j => initLoad[j.id] = true); setLoading(initLoad);
-    const signals = getSignals(jobs, likes, passes);
-    const newA = { ...analyses };
-    for (const job of jobs) {
+
+    // Step 1: Fetch fresh jobs from JSearch
+    setFetching(true);
+    let freshJobs = [];
+    try {
+      const res = await fetch("/api/jobs");
+      const data = await res.json();
+      if (data.error) {
+        setFetchError(data.error);
+      } else if (data.jobs?.length) {
+        // Merge: keep manually added jobs, replace fetched ones
+        const manualJobs = jobs.filter(j => j._manual);
+        const passedIds = new Set(passes.map(p => p.id));
+        const newFetched = data.jobs.filter(j => !passedIds.has(j.id));
+        freshJobs = [...manualJobs, ...newFetched];
+        setJobs(freshJobs);
+        lsSave("vt-jobs", freshJobs);
+      }
+    } catch (e) {
+      setFetchError("Could not fetch jobs: " + e.message);
+    }
+    setFetching(false);
+
+    const jobsToScore = freshJobs.length ? freshJobs : jobs;
+
+    // Step 2: Score each job
+    const initLoad = {}; jobsToScore.forEach(j => initLoad[j.id] = true); setLoading(initLoad);
+    const signals = getSignals(jobsToScore, likes, passes);
+    const newA = {};
+    for (const job of jobsToScore) {
       try {
         const res = await fetch("/api/score", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ job, signals }) });
         newA[job.id] = await res.json();
@@ -451,7 +481,7 @@ export default function JobSearch() {
     lsSave("vt-analyses", newA);
   };
 
-  const addJob = j => { const u = [...jobs, j]; setJobs(u); lsSave("vt-jobs", u); };
+  const addJob = j => { const u = [...jobs, { ...j, _manual: true }]; setJobs(u); lsSave("vt-jobs", u); };
   const deleteJob = id => {
     const u = jobs.filter(j => j.id !== id); setJobs(u); lsSave("vt-jobs", u);
     const na = { ...analyses }; delete na[id]; setAnalyses(na); lsSave("vt-analyses", na);
@@ -468,7 +498,7 @@ export default function JobSearch() {
     const ul = likes.filter(x => x !== passTarget.id); setLikes(ul); lsSave("vt-likes", ul);
   };
 
-  const scanning = Object.values(loading).some(Boolean);
+  const scanning = fetching || Object.values(loading).some(Boolean);
   const trackedCount = Object.keys(tracked).length;
   const strongCount = Object.values(analyses).filter(a => ["Strong Match", "Good Match"].includes(a.verdict)).length;
   const govCount = Object.values(analyses).filter(a => a.gov_flag).length;
@@ -530,11 +560,18 @@ export default function JobSearch() {
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
               <button onClick={scanJobs} disabled={scanning}
                 style={{ background: scanning ? "#1e293b" : "linear-gradient(135deg,#6366f1,#8b5cf6)", color: scanning ? "#475569" : "white", border: "none", borderRadius: 10, padding: "10px 24px", fontSize: 14, fontWeight: 700, cursor: scanning ? "not-allowed" : "pointer" }}>
-                {scanning ? "⟳ Analyzing..." : hasScanned ? "↺ Rescan All" : "⚡ Scan & Score Jobs"}
+                {fetching ? "⟳ Fetching jobs..." : scanning ? "⟳ Scoring..." : hasScanned ? "↺ Fetch Fresh Jobs & Rescan" : "⚡ Fetch & Score Jobs"}
               </button>
               <button onClick={() => setShowAddJob(true)} style={{ background: "transparent", border: "1px solid #334155", color: "#94a3b8", borderRadius: 10, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                 + Add Job
               </button>
+              {fetchError && (
+                <div style={{background:"#1a0a0a",border:"1px solid #ef444433",borderRadius:8,padding:"10px 16px",marginBottom:12,fontSize:12,color:"#ef4444"}}>
+                  {fetchError.includes("RAPIDAPI_KEY") ? (
+                    <span>RAPIDAPI_KEY not set. Add it in Vercel Settings → Environment Variables. <a href="https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch" target="_blank" style={{color:"#6366f1"}}>Get key at RapidAPI →</a></span>
+                  ) : fetchError}
+                </div>
+              )}
               {hasScanned && (
                 <>
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>

@@ -1,163 +1,116 @@
 import { NextResponse } from "next/server";
 
-const CONTEXT = `The candidate is Vikram, a Senior ML/Data Engineer with 5+ years experience.
-Skills: Python, Spark, Databricks, Kafka, NiFi, Elasticsearch, Neo4j, AWS, Docker, Hugging Face Transformers,
-LLMs, NER, Entity Resolution, Deep Metric Learning, ETL pipelines, graph databases, NLP.
-Background: large-scale data fusion, NLP pipelines, graph search, unstructured data.
-Targeting: Senior ML Engineer or Senior Data Engineer roles at private sector product companies.
-Style: Direct, technical, not patronizing. Senior-level depth. Real-world examples preferred.`;
+export async function GET() {
+  const apiKey = process.env.RAPIDAPI_KEY;
+  if (!apiKey) return NextResponse.json({ error: "RAPIDAPI_KEY not configured in Vercel environment variables." }, { status: 500 });
 
-function extractJSON(text) {
-  // Try direct parse first
-  try { return JSON.parse(text.trim()); } catch {}
-  // Strip markdown fences
-  const stripped = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-  try { return JSON.parse(stripped); } catch {}
-  // Find first { to last }
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start !== -1 && end !== -1) {
-    try { return JSON.parse(text.slice(start, end + 1)); } catch {}
-  }
-  return null;
-}
+  const queries = [
+    "senior machine learning engineer NLP remote",
+    "senior data engineer Spark Kafka remote",
+    "senior ML engineer LLM Python remote",
+  ];
 
-export async function POST(req) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return NextResponse.json({ error: "No API key configured" }, { status: 500 });
+  const allJobs = [];
+  const seen = new Set();
 
-  let body;
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid request" }, { status: 400 }); }
+  const govKeywords = ["clearance", "secret clearance", "dod", "department of defense", "federal government", "booz allen", "leidos", "saic", "mitre", "intelligence community", "cia", "nsa", "dhs"];
+  const techKeywords = ["Python","Spark","Kafka","NLP","LLM","Transformers","PyTorch","TensorFlow","Elasticsearch","AWS","Databricks","Kubernetes","Docker","dbt","Airflow","Flink","Neo4j","Graph","NER","MLOps","Hugging Face","RAG","Vector","Snowflake","Scala","Java","Redis","Pinecone"];
 
-  const { type, topic, userAnswer, question, messages } = body;
-
-  // ── CHAT (handled separately, no JSON needed) ──────────────────────────────
-  if (type === "chat") {
+  for (const q of queries) {
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 1500,
-          system: `${CONTEXT}\nYou are an expert ML/DE interview coach. Be direct, technical, senior-level. Explain concepts clearly, work through problems step by step. Use code examples where helpful (use plain text code blocks with triple backticks).`,
-          messages: messages || [{ role: "user", content: topic }]
-        })
+      const url = new URL("https://jsearch.p.rapidapi.com/search");
+      url.searchParams.set("query", q);
+      url.searchParams.set("page", "1");
+      url.searchParams.set("num_pages", "2");
+      url.searchParams.set("date_posted", "month");
+      url.searchParams.set("remote_jobs_only", "true");
+
+      const res = await fetch(url.toString(), {
+        headers: {
+          "X-RapidAPI-Key": apiKey,
+          "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
+        },
       });
-      const d = await res.json();
-      if (d.error) return NextResponse.json({ error: d.error.message }, { status: 500 });
-      const text = d.content?.map(i => i.text || "").join("") || "";
-      return NextResponse.json({ text });
+
+      const data = await res.json();
+      if (data.message) {
+        console.error("JSearch error:", data.message);
+        continue;
+      }
+      if (!data.data?.length) continue;
+
+      for (const j of data.data) {
+        if (seen.has(j.job_id)) continue;
+        seen.add(j.job_id);
+
+        const applyUrl = j.job_apply_link || j.job_google_link;
+        if (!applyUrl) continue;
+
+        const titleLower = (j.job_title || "").toLowerCase();
+        const descLower = (j.job_description || "").toLowerCase();
+        const companyLower = (j.employer_name || "").toLowerCase();
+        const fullText = titleLower + " " + descLower + " " + companyLower;
+
+        const isGov = govKeywords.some(k => fullText.includes(k));
+
+        // Salary
+        let salary = "Not listed";
+        if (j.job_min_salary && j.job_max_salary) {
+          const fmt = v => v >= 1000 ? `$${Math.round(v / 1000)}K` : `$${v}`;
+          salary = `${fmt(j.job_min_salary)}–${fmt(j.job_max_salary)}`;
+        } else if (j.job_salary_currency === "USD" && j.job_min_salary) {
+          salary = `$${Math.round(j.job_min_salary / 1000)}K+`;
+        }
+
+        const tags = techKeywords.filter(k => fullText.includes(k.toLowerCase())).slice(0, 7);
+        if (!tags.length) tags.push("ML", "Python");
+
+        // Clean description
+        const desc = (j.job_description || "")
+          .replace(/\n+/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 500);
+
+        // Posted date
+        let posted = "";
+        if (j.job_posted_at_datetime_utc) {
+          const d = new Date(j.job_posted_at_datetime_utc);
+          const days = Math.floor((Date.now() - d) / 86400000);
+          posted = days === 0 ? "Today" : days === 1 ? "1 day ago" : `${days} days ago`;
+        }
+
+        allJobs.push({
+          id: j.job_id,
+          title: j.job_title || "ML Engineer",
+          company: j.employer_name || "Unknown",
+          board: j.job_publisher || "Job Board",
+          url: applyUrl,
+          salary,
+          remote: true,
+          tags,
+          description: desc,
+          industry: "",
+          stage: "",
+          gov_flag: isGov,
+          posted,
+        });
+      }
     } catch (e) {
-      return NextResponse.json({ error: e.message }, { status: 500 });
+      console.error("JSearch fetch error:", q, e.message);
     }
   }
 
-  // ── STRUCTURED JSON RESPONSES ──────────────────────────────────────────────
-  let prompt = "";
-
-  if (type === "learn") {
-    prompt = `${CONTEXT}
-
-Generate a focused, senior-level learning session on this topic: "${topic}"
-
-You MUST respond with ONLY valid JSON. No markdown, no preamble, no explanation outside the JSON.
-
-{
-  "title": "exact topic name",
-  "tldr": "2-3 sentence executive summary of what this is and why it matters",
-  "sections": [
-    {
-      "heading": "Core Concepts",
-      "content": "Detailed explanation, 150-200 words. Senior-level depth. Include specifics, not generalities."
-    },
-    {
-      "heading": "How It Works in Practice",
-      "content": "Real-world application. Include a short code snippet or pseudocode if relevant, using plain backticks."
-    },
-    {
-      "heading": "Common Interview Angles",
-      "content": "How this topic typically appears in senior ML/DE interviews. What they actually ask. What traps people."
+  // Dedupe by company+title in case same job appears across queries
+  const deduped = [];
+  const titleCompany = new Set();
+  for (const j of allJobs) {
+    const key = `${j.company.toLowerCase()}::${j.title.toLowerCase()}`;
+    if (!titleCompany.has(key)) {
+      titleCompany.add(key);
+      deduped.push(j);
     }
-  ],
-  "key_facts": [
-    "Specific memorable fact 1",
-    "Specific memorable fact 2",
-    "Specific memorable fact 3"
-  ],
-  "follow_up_topics": [
-    "Related topic 1",
-    "Related topic 2",
-    "Related topic 3"
-  ]
-}`;
-
-  } else if (type === "question") {
-    const qtype = question?.qtype || "technical";
-    prompt = `${CONTEXT}
-
-Generate one senior-level interview question about: "${topic}"
-Question type: ${qtype}
-
-You MUST respond with ONLY valid JSON. No markdown, no preamble.
-
-{
-  "question": "The full interview question text",
-  "context": "1-2 sentences on why interviewers ask this and what they are probing for",
-  "what_they_want": "What a strong senior-level answer looks like",
-  "hints": ["Hint 1 if stuck", "Hint 2 if stuck"],
-  "qtype": "${qtype}"
-}`;
-
-  } else if (type === "evaluate") {
-    prompt = `${CONTEXT}
-
-Interview question: "${question}"
-Candidate answer: "${userAnswer}"
-
-Evaluate this as a senior hiring manager would. Be honest and specific.
-
-You MUST respond with ONLY valid JSON. No markdown, no preamble.
-
-{
-  "score": 7,
-  "verdict": "Good",
-  "strengths": ["Specific strength 1", "Specific strength 2"],
-  "gaps": ["Specific gap or missed point"],
-  "ideal_points": ["Key point that should have been mentioned 1", "Key point 2", "Key point 3"],
-  "sample_answer": "A strong 3-5 sentence model answer to this question"
-}
-
-verdict must be one of: Strong, Good, Needs Work, Weak`;
-
-  } else {
-    return NextResponse.json({ error: "Unknown type" }, { status: 400 });
   }
 
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 2000,
-        messages: [{ role: "user", content: prompt }]
-      })
-    });
-
-    const data = await res.json();
-    if (data.error) return NextResponse.json({ error: data.error.message }, { status: 500 });
-
-    const text = data.content?.map(i => i.text || "").join("") || "";
-    const parsed = extractJSON(text);
-
-    if (!parsed) {
-      console.error("JSON parse failed. Raw response:", text.slice(0, 500));
-      return NextResponse.json({ error: "Failed to parse response", raw: text.slice(0, 200) }, { status: 500 });
-    }
-
-    return NextResponse.json(parsed);
-  } catch (e) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
-  }
+  return NextResponse.json({ jobs: deduped.slice(0, 25), fetchedAt: new Date().toISOString() });
 }
