@@ -444,37 +444,47 @@ export default function JobSearch() {
 
     // Step 1: Fetch fresh jobs from JSearch
     setFetching(true);
-    let freshJobs = [];
+    let jobsToScore = jobs.filter(j => j._manual); // always keep manual jobs
     try {
       const res = await fetch("/api/jobs");
-      const data = await res.json();
-      if (data.error) {
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch {
+        setFetchError("API returned unexpected response. Check that RAPIDAPI_KEY is set in Vercel environment variables.");
+        data = null;
+      }
+      if (data?.error) {
         setFetchError(data.error);
-      } else if (data.jobs?.length) {
-        // Merge: keep manually added jobs, replace fetched ones
-        const manualJobs = jobs.filter(j => j._manual);
+      } else if (data?.jobs?.length) {
         const passedIds = new Set(passes.map(p => p.id));
         const newFetched = data.jobs.filter(j => !passedIds.has(j.id));
-        freshJobs = [...manualJobs, ...newFetched];
-        setJobs(freshJobs);
-        lsSave("vt-jobs", freshJobs);
+        jobsToScore = [...jobs.filter(j => j._manual), ...newFetched];
+        setJobs(jobsToScore);
+        lsSave("vt-jobs", jobsToScore);
+      } else if (data && !data.jobs?.length) {
+        setFetchError("No jobs returned from API. You may have hit the free tier limit (200 req/month) or the query returned no results.");
       }
     } catch (e) {
-      setFetchError("Could not fetch jobs: " + e.message);
+      setFetchError("Network error fetching jobs: " + e.message);
     }
     setFetching(false);
 
-    const jobsToScore = freshJobs.length ? freshJobs : jobs;
+    // If we still have no jobs at all, bail out early
+    if (!jobsToScore.length) {
+      setLoading({});
+      return;
+    }
 
     // Step 2: Score each job
     const initLoad = {}; jobsToScore.forEach(j => initLoad[j.id] = true); setLoading(initLoad);
     const signals = getSignals(jobsToScore, likes, passes);
-    const newA = {};
+    const newA = { ...analyses };
     for (const job of jobsToScore) {
       try {
         const res = await fetch("/api/score", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ job, signals }) });
-        newA[job.id] = await res.json();
-      } catch { newA[job.id] = { score: 0, verdict: "Error", reasons: [], gaps: [], one_liner: "Failed.", gov_flag: false }; }
+        const scoreData = await res.json();
+        newA[job.id] = scoreData;
+      } catch { newA[job.id] = { score: 0, verdict: "Error", reasons: [], gaps: [], one_liner: "Score failed.", gov_flag: false }; }
       setAnalyses(prev => ({ ...prev, [job.id]: newA[job.id] }));
       setLoading(prev => ({ ...prev, [job.id]: false }));
     }
