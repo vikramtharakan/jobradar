@@ -489,6 +489,7 @@ export default function JobSearch() {
       setLoading(prev => ({ ...prev, [job.id]: false }));
     }
     lsSave("vt-analyses", newA);
+    setLoading({}); // always clear loading state when done
   };
 
   const addJob = j => { const u = [...jobs, { ...j, _manual: true }]; setJobs(u); lsSave("vt-jobs", u); };
