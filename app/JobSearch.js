@@ -15,7 +15,7 @@ const JOB_BOARDS = [
 const DEFAULT_JOBS = [
   {
     id: "1", title: "Machine Learning Engineer – NLP", company: "Quora", board: "Wellfound",
-    url: "https://wellfound.com/jobs/2831208-machine-learning-engineer-nlp-remote",
+    url: "https://wellfound.com/role/r/machine-learning-engineer",
     salary: "$120K–$275K", remote: true,
     tags: ["NLP", "Python", "ML Systems", "Data Pipelines", "Feature Engineering"],
     description: "Take end-to-end ownership of ML systems — data pipelines, feature engineering, candidate extraction, model training, and production integration. Work on NLP and language modeling across Quora and Poe platforms. Remote-first company, coordination hours Mon-Fri 9am-3pm PT.",
@@ -39,7 +39,7 @@ const DEFAULT_JOBS = [
   },
   {
     id: "4", title: "Sr. Machine Learning Engineer (LLM)", company: "Collinear AI", board: "Wellfound",
-    url: "https://wellfound.com/jobs/2952888-sr-machine-learning-engineer-llm",
+    url: "https://wellfound.com/role/r/machine-learning-engineer",
     salary: "Competitive + equity", remote: true,
     tags: ["LLMs", "RLHF", "NLP", "Python", "PyTorch", "Transformers"],
     description: "Well-funded stealth AI startup (team from Stanford, Hugging Face, Salesforce) focused on AI Alignment and customization. Fine-tune open-source LLMs for enterprise use cases. Work on SFT and RLHF pipelines. Primarily in-person in Mountain View with remote flexibility — verify remote policy before applying.",
@@ -473,7 +473,10 @@ export default function JobSearch() {
   const strongCount = Object.values(analyses).filter(a => ["Strong Match", "Good Match"].includes(a.verdict)).length;
   const govCount = Object.values(analyses).filter(a => a.gov_flag).length;
 
+  const hiddenStatuses = ["Applied", "Phone Screen", "Interview", "Offer", "Pass"];
   const filtered = jobs
+    .filter(j => !passes.find(p => p.id === j.id))
+    .filter(j => !hiddenStatuses.includes(tracked[j.id]?.status))
     .filter(j => filter === "All" || analyses[j.id]?.verdict === filter)
     .filter(j => (analyses[j.id]?.score || 0) >= scoreFilter)
     .sort((a, b) => (analyses[b.id]?.score || 0) - (analyses[a.id]?.score || 0));
