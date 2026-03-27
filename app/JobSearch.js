@@ -442,9 +442,12 @@ export default function JobSearch() {
     setFetchError(null);
     const now = new Date(); setLastScan(now); lsSave("vt-last-scan", now.toISOString());
 
-    // Step 1: Fetch fresh jobs from JSearch
+    // Step 1: Fetch fresh jobs — snapshot manual jobs NOW before any async work
+    const manualJobs = jobs.filter(j => j._manual);
+    const currentPasses = passes; // snapshot to avoid stale closure issues
     setFetching(true);
-    let jobsToScore = jobs.filter(j => j._manual); // always keep manual jobs
+    let jobsToScore = null;
+
     try {
       const res = await fetch("/api/jobs");
       const text = await res.text();
@@ -456,9 +459,10 @@ export default function JobSearch() {
       if (data?.error) {
         setFetchError(data.error);
       } else if (data?.jobs?.length) {
-        const passedIds = new Set(passes.map(p => p.id));
-        const newFetched = data.jobs.filter(j => !passedIds.has(j.id));
-        jobsToScore = [...jobs.filter(j => j._manual), ...newFetched];
+        const passedIds = new Set(currentPasses.map(p => p.id));
+        // Replace fetched jobs entirely — don't merge with stale state
+        const freshJobs = data.jobs.filter(j => !passedIds.has(j.id));
+        jobsToScore = [...manualJobs, ...freshJobs];
         setJobs(jobsToScore);
         lsSave("vt-jobs", jobsToScore);
       } else if (data && !data.jobs?.length) {
@@ -469,27 +473,32 @@ export default function JobSearch() {
     }
     setFetching(false);
 
-    // If we still have no jobs at all, bail out early
+    // Fall back to whatever is currently saved if fetch failed
+    if (!jobsToScore) {
+      const saved = ls("vt-jobs", []);
+      jobsToScore = saved.length ? saved : manualJobs;
+    }
+
     if (!jobsToScore.length) {
       setLoading({});
       return;
     }
 
-    // Step 2: Score each job
+    // Step 2: Score each job with fresh analyses (don't reuse old analyses object)
+    setAnalyses({});
     const initLoad = {}; jobsToScore.forEach(j => initLoad[j.id] = true); setLoading(initLoad);
-    const signals = getSignals(jobsToScore, likes, passes);
-    const newA = { ...analyses };
+    const signals = getSignals(jobsToScore, currentPasses, currentPasses);
+    const newA = {};
     for (const job of jobsToScore) {
       try {
         const res = await fetch("/api/score", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ job, signals }) });
-        const scoreData = await res.json();
-        newA[job.id] = scoreData;
+        newA[job.id] = await res.json();
       } catch { newA[job.id] = { score: 0, verdict: "Error", reasons: [], gaps: [], one_liner: "Score failed.", gov_flag: false }; }
       setAnalyses(prev => ({ ...prev, [job.id]: newA[job.id] }));
       setLoading(prev => ({ ...prev, [job.id]: false }));
     }
     lsSave("vt-analyses", newA);
-    setLoading({}); // always clear loading state when done
+    setLoading({});
   };
 
   const addJob = j => { const u = [...jobs, { ...j, _manual: true }]; setJobs(u); lsSave("vt-jobs", u); };
