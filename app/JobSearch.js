@@ -63,8 +63,29 @@ const DEFAULT_JOBS = [
   },
 ];
 
-const STATUSES = ["Saved", "Applied", "Phone Screen", "Interview", "Offer", "Pass"];
-const STATUS_COLORS = { Saved: "#6366f1", Applied: "#3b82f6", "Phone Screen": "#f59e0b", Interview: "#8b5cf6", Offer: "#22c55e", Pass: "#64748b" };
+const STATUSES = [
+  "Saved", "Applied", "Phone Screen", "Interview", "Coding Interview", "Final Round",
+  "Offer", "Offer Declined",
+  "Rejected - No Response", "Rejected - Pre-Interview", "Rejected - After Phone Screen",
+  "Rejected - After Coding", "Rejected - After Final Round",
+  "Pass"
+];
+const STATUS_COLORS = {
+  "Saved": "#6366f1",
+  "Applied": "#3b82f6",
+  "Phone Screen": "#f59e0b",
+  "Interview": "#8b5cf6",
+  "Coding Interview": "#a855f7",
+  "Final Round": "#ec4899",
+  "Offer": "#22c55e",
+  "Offer Declined": "#84cc16",
+  "Rejected - No Response": "#ef4444",
+  "Rejected - Pre-Interview": "#ef4444",
+  "Rejected - After Phone Screen": "#ef4444",
+  "Rejected - After Coding": "#ef4444",
+  "Rejected - After Final Round": "#ef4444",
+  "Pass": "#64748b",
+};
 
 const PASS_REASONS = [
   "Salary too low", "Not remote enough", "Gov/defense adjacent",
@@ -93,22 +114,42 @@ function ScoreRing({ score }) {
   );
 }
 
+const STATUS_GROUPS = [
+  { label: "IN PROGRESS", statuses: ["Saved", "Applied", "Phone Screen", "Interview", "Coding Interview", "Final Round"] },
+  { label: "OUTCOME", statuses: ["Offer", "Offer Declined", "Pass"] },
+  { label: "REJECTED", statuses: ["Rejected - No Response", "Rejected - Pre-Interview", "Rejected - After Phone Screen", "Rejected - After Coding", "Rejected - After Final Round"] },
+];
+
 function StatusBadge({ status, onChange }) {
   const [open, setOpen] = useState(false);
+  const isRejected = (status || "").startsWith("Rejected");
+  const color = STATUS_COLORS[status] || "#64748b";
+  const displayLabel = isRejected ? "✕ " + status.replace("Rejected - ", "") : status;
   return (
     <div style={{ position: "relative" }}>
       <button onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
-        style={{ background: STATUS_COLORS[status] + "22", color: STATUS_COLORS[status], border: `1px solid ${STATUS_COLORS[status]}55`, borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-        {status} ▾
+        style={{ background: color + "22", color, border: `1px solid ${color}55`, borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+        {displayLabel} ▾
       </button>
       {open && (
-        <div style={{ position: "absolute", top: "110%", right: 0, background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, zIndex: 200, minWidth: 140, overflow: "hidden" }}>
-          {STATUSES.map(s => (
-            <div key={s} onClick={e => { e.stopPropagation(); onChange(s); setOpen(false); }}
-              style={{ padding: "8px 14px", fontSize: 12, color: STATUS_COLORS[s], cursor: "pointer", fontWeight: 600, background: s === status ? "#1e293b" : "transparent" }}
-              onMouseEnter={e => e.currentTarget.style.background = "#1e293b"}
-              onMouseLeave={e => e.currentTarget.style.background = s === status ? "#1e293b" : "transparent"}>
-              {s}
+        <div style={{ position: "absolute", top: "110%", right: 0, background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, zIndex: 200, minWidth: 220, overflow: "hidden", boxShadow: "0 8px 24px #00000099" }}>
+          {STATUS_GROUPS.map(group => (
+            <div key={group.label}>
+              <div style={{ padding: "6px 14px 3px", fontSize: 9, color: "#475569", letterSpacing: "0.12em", fontWeight: 700, background: "#060d18", borderTop: "1px solid #1e293b" }}>
+                {group.label}
+              </div>
+              {group.statuses.map(s => {
+                const c = STATUS_COLORS[s] || "#64748b";
+                const label = s.startsWith("Rejected") ? "✕ " + s.replace("Rejected - ", "") : s;
+                return (
+                  <div key={s} onClick={e => { e.stopPropagation(); onChange(s); setOpen(false); }}
+                    style={{ padding: "7px 16px", fontSize: 12, color: c, cursor: "pointer", fontWeight: 600, background: s === status ? "#1e293b" : "transparent" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#1e293b"}
+                    onMouseLeave={e => e.currentTarget.style.background = s === status ? "#1e293b" : "transparent"}>
+                    {label}
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>
@@ -523,7 +564,7 @@ export default function JobSearch() {
   const strongCount = Object.values(analyses).filter(a => ["Strong Match", "Good Match"].includes(a.verdict)).length;
   const govCount = Object.values(analyses).filter(a => a.gov_flag).length;
 
-  const hiddenStatuses = ["Applied", "Phone Screen", "Interview", "Offer", "Pass"];
+  const hiddenStatuses = ["Applied", "Phone Screen", "Interview", "Coding Interview", "Final Round", "Offer", "Offer Declined", "Rejected - No Response", "Rejected - Pre-Interview", "Rejected - After Phone Screen", "Rejected - After Coding", "Rejected - After Final Round", "Pass"];
   const filtered = jobs
     .filter(j => !passes.find(p => p.id === j.id))
     .filter(j => !hiddenStatuses.includes(tracked[j.id]?.status))
