@@ -4,21 +4,25 @@ export async function GET() {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey) return NextResponse.json({ error: "RAPIDAPI_KEY not configured in Vercel environment variables." }, { status: 500 });
 
-  // 4 balanced queries — 2 DE-focused, 2 ML-focused, 1 page each = 4 API calls per rescan
+  // Balanced queries: DE, ML, FDE/hybrid, big tech — 1 page each = 5 API calls/rescan
   const queries = [
-    "senior data engineer remote Python Spark",
-    "senior data engineer remote Kafka Databricks",
-    "senior machine learning engineer remote Python",
-    "senior ML engineer NLP LLM remote",
+    "senior data engineer remote Python Spark Databricks",
+    "senior data engineer remote Kafka streaming AWS",
+    "senior machine learning engineer remote Python NLP",
+    "forward deployed engineer remote data ML",
+    "senior ML engineer data platform remote fintech startup",
   ];
 
   const allJobs = [];
   const seen = new Set();
   const errors = [];
 
-  const govKeywords = ["clearance","secret clearance","dod","department of defense","federal government","booz allen","leidos","saic","mitre","intelligence community","cia","nsa","dhs","raytheon","general dynamics","northrop"];
-  const techKeywords = ["Python","Spark","Kafka","NLP","LLM","Transformers","PyTorch","TensorFlow","Elasticsearch","AWS","GCP","Azure","Databricks","Kubernetes","Docker","dbt","Airflow","Flink","Neo4j","NER","MLOps","Hugging Face","RAG","Snowflake","Scala","Redis","Pinecone","Trino","Iceberg","Redshift","BigQuery"];
-  const skipTitles = ["intern","junior","jr.","associate engineer","manager","director","vp ","vice president","recruiter","sales","marketing","designer"];
+  // Companies to exclude
+  const blockedCompanies = ["capital one", "booz allen", "leidos", "saic", "mitre corporation", "raytheon", "general dynamics", "northrop grumman", "l3harris", "caci"];
+
+  const govKeywords = ["clearance required","secret clearance","top secret","dod","department of defense","intelligence community","cia","nsa","dhs","federal agency"];
+  const techKeywords = ["Python","Spark","Kafka","NLP","LLM","Transformers","PyTorch","TensorFlow","Elasticsearch","AWS","GCP","Azure","Databricks","Kubernetes","Docker","dbt","Airflow","Flink","Neo4j","NER","MLOps","Hugging Face","RAG","Snowflake","Scala","Redis","Pinecone","Trino","Iceberg","Redshift","BigQuery","FastAPI","Pydantic","Pandas","NumPy"];
+  const skipTitles = ["intern","junior","jr.","associate engineer","manager","director","vp ","vice president","recruiter","sales","marketing","designer","product manager","analyst"];
 
   for (const q of queries) {
     try {
@@ -49,12 +53,19 @@ export async function GET() {
 
         const titleLower = (j.job_title || "").toLowerCase();
         const descLower = (j.job_description || "").toLowerCase();
-        const fullText = titleLower + " " + descLower + " " + (j.employer_name || "").toLowerCase();
+        const companyLower = (j.employer_name || "").toLowerCase();
+        const fullText = titleLower + " " + descLower + " " + companyLower;
 
+        // Skip blocked companies
+        if (blockedCompanies.some(c => companyLower.includes(c))) continue;
+
+        // Skip irrelevant titles
         if (skipTitles.some(s => titleLower.includes(s))) continue;
 
+        // Flag gov roles (don't skip — let scorer penalize)
         const isGov = govKeywords.some(k => fullText.includes(k));
 
+        // Salary
         let salary = "Not listed";
         if (j.job_min_salary && j.job_max_salary) {
           const fmt = v => `$${Math.round(v / 1000)}K`;
@@ -63,9 +74,11 @@ export async function GET() {
           salary = `$${Math.round(j.job_min_salary / 1000)}K+`;
         }
 
-        const isDE = titleLower.includes("data engineer") || ["spark","kafka","dbt","airflow","databricks"].some(k => fullText.includes(k));
-        const isML = titleLower.includes("machine learning") || titleLower.includes("ml engineer") || ["pytorch","tensorflow","llm","nlp"].some(k => fullText.includes(k));
-        const roleType = isDE && isML ? "DE + ML" : isDE ? "Data Eng" : isML ? "ML Eng" : "Engineer";
+        // Role type label
+        const isDE = titleLower.includes("data engineer") || ["spark","kafka","dbt","airflow","databricks","etl","pipeline"].some(k => fullText.includes(k));
+        const isML = titleLower.includes("machine learning") || titleLower.includes("ml engineer") || ["pytorch","tensorflow","llm","nlp","model training"].some(k => fullText.includes(k));
+        const isFDE = titleLower.includes("forward deployed") || titleLower.includes("solutions engineer") || titleLower.includes("field engineer");
+        const roleType = isFDE ? "FDE / Applied Eng" : isDE && isML ? "DE + ML" : isDE ? "Data Eng" : isML ? "ML Eng" : "Engineer";
 
         const tags = techKeywords.filter(k => fullText.includes(k.toLowerCase())).slice(0, 7);
         if (!tags.length) tags.push("Python", "SQL");

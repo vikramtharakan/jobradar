@@ -4,12 +4,14 @@ import { useState, useEffect } from "react";
 // ── constants ──────────────────────────────────────────────────────────────────
 
 const JOB_BOARDS = [
+  { name: "LinkedIn", url: "https://www.linkedin.com/jobs/search/?keywords=senior%20data%20engineer%20OR%20senior%20ML%20engineer&f_WT=2&f_E=4%2C5&sortBy=DD", label: "Biggest volume — big tech, finance, mid-stage startups", hot: true },
   { name: "Wellfound", url: "https://wellfound.com/jobs?role=machine-learning-engineer&remote=true", label: "Best for startups — direct founder access", hot: true },
   { name: "YC Jobs", url: "https://www.workatastartup.com/jobs?role=ml&remote=true", label: "YC-backed startups, highest signal-to-noise", hot: true },
   { name: "ai-jobs.net", url: "https://ai-jobs.net/", label: "Curated AI/ML roles, no fluff", hot: false },
+  { name: "Levels.fyi Jobs", url: "https://www.levels.fyi/jobs?jobFamily=Software+Engineer&country=254", label: "Salary-transparent with comp data", hot: false },
+  { name: "Greenhouse Job Board", url: "https://boards.greenhouse.io/", label: "Direct company boards, less noise", hot: false },
+  { name: "Built In Remote", url: "https://builtin.com/jobs/remote/data-analytics-engineering", label: "Tech companies with remote DE/ML roles", hot: false },
   { name: "Remotive", url: "https://remotive.com/remote-jobs/software-dev", label: "Every post vetted, remote-only", hot: false },
-  { name: "Built In NYC", url: "https://builtin.com/jobs/remote/machine-learning", label: "NYC companies offering remote", hot: false },
-  { name: "Levels.fyi Jobs", url: "https://www.levels.fyi/jobs?jobFamily=Software+Engineer&country=254", label: "Salary-transparent listings", hot: false },
 ];
 
 const DEFAULT_JOBS = [
@@ -443,6 +445,392 @@ function TrackerView({ jobs, tracked, onStatusChange, onNoteChange }) {
 
 // ── main ───────────────────────────────────────────────────────────────────────
 
+
+// ── Inline link helper ─────────────────────────────────────────────────────────
+function TL({ href, children }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer"
+      style={{ color: "#818cf8", textDecoration: "underline", textDecorationColor: "#818cf844", cursor: "pointer" }}>
+      {children}
+    </a>
+  );
+}
+
+// ── Learning data ──────────────────────────────────────────────────────────────
+const LEARN_TOPICS = [
+  {
+    id: "mlops",
+    title: "MLOps & Model Deployment",
+    icon: "🚀",
+    tagline: "Getting ML models out of notebooks and into production",
+    levels: [
+      {
+        level: 1,
+        label: "The Basics",
+        summary: "MLOps means the set of practices that get a machine learning model from your laptop into a real product that users interact with — and keep it working reliably over time. Think of it like DevOps (the practice of shipping software reliably) but with extra steps for the fact that ML models have data dependencies and can degrade silently.",
+        concepts: [
+          { term: "Model training", plain: "Teaching a model on historical data to learn patterns.", link: "https://developers.google.com/machine-learning/crash-course/descending-into-ml/training-and-loss" },
+          { term: "Model serving / inference", plain: "Taking a trained model and using it to make predictions on new data in real time.", link: "https://www.seldon.io/what-is-model-serving" },
+          { term: "CI/CD for ML", plain: "Automatically testing and deploying new model versions when you push code — same idea as software CI/CD.", link: "https://ml-ops.org/content/mlops-principles" },
+          { term: "Model registry", plain: "A versioned store of trained models — like Git but for model artifacts. MLflow is the most common.", link: "https://mlflow.org/docs/latest/model-registry.html" },
+        ],
+        questions: ["What is the difference between model training and model inference?", "Why can't you just deploy a model as a Python script?"],
+        resources: [
+          { label: "Google ML Crash Course (free)", url: "https://developers.google.com/machine-learning/crash-course" },
+          { label: "MLOps.org — principles overview", url: "https://ml-ops.org/content/mlops-principles" },
+        ],
+      },
+      {
+        level: 2,
+        label: "Intermediate",
+        summary: "At this level you understand the full lifecycle: data → training → evaluation → serving → monitoring → retraining. You know the tools (MLflow, Airflow, Docker, a model server like TorchServe or BentoML) and can talk about trade-offs between batch and real-time inference.",
+        concepts: [
+          { term: "Batch vs real-time inference", plain: "Batch: score thousands of records overnight (cheap, slow). Real-time: score one record in <100ms when a user takes an action (expensive, fast). Most production systems need both.", link: "https://huyenchip.com/2022/01/02/real-time-machine-learning-challenges-and-solutions.html" },
+          { term: "Feature store", plain: "A shared database of pre-computed features (inputs to models) that both training pipelines and serving pipelines read from — so they never compute the same thing twice.", link: "https://www.tecton.ai/blog/what-is-a-feature-store/" },
+          { term: "Model drift", plain: "When a model's real-world accuracy degrades because the world changed — new user behaviors, seasonal patterns, data quality issues. You detect it by monitoring prediction distributions.", link: "https://towardsdatascience.com/machine-learning-model-drift-9cc43ad530d6" },
+          { term: "Canary deployment", plain: "Sending 5% of real traffic to a new model version before fully rolling out. If metrics look good, gradually increase. If something breaks, you only affected 5% of users.", link: "https://martinfowler.com/bliki/CanaryRelease.html" },
+        ],
+        questions: [
+          "Design a real-time inference service for 10K requests per second. What are the bottlenecks?",
+          "How do you A/B test two model versions without hurting revenue?",
+          "Your model is accurate in testing but slow in production (500ms latency). What do you do?",
+        ],
+        resources: [
+          { label: "Chip Huyen — Designing ML Systems (book)", url: "https://www.oreilly.com/library/view/designing-machine-learning/9781098107956/" },
+          { label: "Chip Huyen — Real-time ML blog post", url: "https://huyenchip.com/2022/01/02/real-time-machine-learning-challenges-and-solutions.html" },
+          { label: "Full Stack Deep Learning — free course", url: "https://fullstackdeeplearning.com/course/2022/" },
+        ],
+      },
+      {
+        level: 3,
+        label: "Senior / Interview Level",
+        summary: "Senior interviews go deep on system design, cost optimization, and operational war stories. They want to see you've actually run models in production, dealt with failures, and made architectural decisions under constraints.",
+        concepts: [
+          { term: "GPU utilization & batching", plain: "GPUs are only fast when you feed them large batches. A model that processes 1 request at a time uses maybe 5% of GPU capacity. Request batching (grouping incoming requests before inference) is how you get to 80%+ utilization.", link: "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/model_configuration.html" },
+          { term: "Quantization", plain: "Compressing a model's weights from 32-bit floats to 8-bit integers. Makes the model 4x smaller and 2-4x faster with small accuracy loss. Common technique when a model is too slow.", link: "https://huggingface.co/docs/optimum/concept_guides/quantization" },
+          { term: "Knowledge distillation", plain: "Training a small 'student' model to mimic a large 'teacher' model. The student is much faster and cheaper to serve, at the cost of some accuracy.", link: "https://neptune.ai/blog/knowledge-distillation" },
+          { term: "Data drift vs model drift", plain: "Data drift: the inputs to your model changed distribution (e.g. users shifted age demographic). Model drift: your model's predictions are becoming less accurate. They require different responses — data drift might mean retraining, model drift might mean a bug in your pipeline.", link: "https://www.evidentlyai.com/ml-in-production/data-drift-vs-model-drift" },
+          { term: "Cold start penalty (Lambda/serverless)", plain: "AWS Lambda spins up a new container from scratch when it hasn't been called recently. For ML models this takes 3-10 seconds. Fine for async/batch jobs, catastrophic for real-time APIs.", link: "https://aws.amazon.com/blogs/compute/operating-lambda-performance-optimization-part-1/" },
+        ],
+        questions: [
+          "Design a system to detect model drift in production. How do you distinguish data drift from model drift?",
+          "Your inference p99 latency is 800ms but your SLA is 200ms. Walk me through your optimization process.",
+          "Should you use AWS Lambda for your ML inference endpoint? What are the trade-offs?",
+          "How do you implement a canary rollout for a new model version with automatic rollback?",
+        ],
+        resources: [
+          { label: "Triton Inference Server docs (NVIDIA)", url: "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/index.html" },
+          { label: "Evidently AI — monitoring guide", url: "https://www.evidentlyai.com/blog/machine-learning-monitoring-data-and-concept-drift" },
+          { label: "HuggingFace — quantization guide", url: "https://huggingface.co/docs/optimum/concept_guides/quantization" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "data_eng",
+    title: "Data Engineering Fundamentals",
+    icon: "⚙️",
+    tagline: "Pipelines, warehouses, and making data actually usable",
+    levels: [
+      {
+        level: 1,
+        label: "The Basics",
+        summary: "Data engineering is the work of building and maintaining the systems that move, transform, and store data so that analysts, data scientists, and ML models can actually use it. If data science is the car, data engineering is the road network.",
+        concepts: [
+          { term: "ETL / ELT", plain: "Extract-Transform-Load (or Extract-Load-Transform). Moving data from source systems (databases, APIs, files) into a data warehouse. ETL transforms data before loading; ELT loads raw first, transforms later in the warehouse (modern approach).", link: "https://www.fivetran.com/blog/etl-vs-elt" },
+          { term: "Data warehouse", plain: "A database optimized for analytical queries (lots of reads, complex aggregations) rather than transactional writes. Examples: Snowflake, BigQuery, Redshift.", link: "https://www.snowflake.com/guides/data-warehouse/" },
+          { term: "Data pipeline", plain: "A series of automated steps that move and transform data from point A to point B on a schedule.", link: "https://hazelcast.com/glossary/data-pipeline/" },
+          { term: "Orchestration", plain: "Scheduling and managing dependencies between pipeline steps. Apache Airflow is the most common tool — you define a DAG (directed acyclic graph) of tasks.", link: "https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/index.html" },
+        ],
+        questions: ["What is the difference between a data warehouse and a database?", "What does ETL stand for and why does it exist?"],
+        resources: [
+          { label: "Fundamentals of Data Engineering (book)", url: "https://www.oreilly.com/library/view/fundamentals-of-data/9781098108298/" },
+          { label: "dbt Learn — free intro course", url: "https://courses.getdbt.com/courses/fundamentals" },
+        ],
+      },
+      {
+        level: 2,
+        label: "Intermediate",
+        summary: "At this level you can design a pipeline from scratch, choose the right tool for batch vs streaming, and explain why data quality matters. You know Spark, have used Airflow or a similar orchestrator, and understand partitioning and schema design.",
+        concepts: [
+          { term: "Apache Spark", plain: "A distributed computing engine for processing massive datasets across many machines in parallel. You write code once and it runs on a cluster of hundreds of machines.", link: "https://spark.apache.org/docs/latest/rdd-programming-guide.html" },
+          { term: "Partitioning", plain: "Dividing a large table or dataset into smaller chunks based on a column (e.g. date). Queries that filter by that column only scan the relevant chunk, making them much faster.", link: "https://docs.databricks.com/en/tables/partitions.html" },
+          { term: "Streaming vs batch", plain: "Batch: process data in large chunks on a schedule (e.g. nightly). Streaming: process each record as soon as it arrives, in real-time (Kafka + Flink/Spark Streaming).", link: "https://www.confluent.io/learn/batch-vs-real-time-data-processing/" },
+          { term: "Delta Lake / Iceberg", plain: "Table formats that add ACID transactions, time-travel, and schema evolution to data lake files (Parquet). Makes a data lake behave more like a database.", link: "https://delta.io/learn/what-is-delta-lake/" },
+        ],
+        questions: [
+          "When would you use Spark vs a simple SQL query?",
+          "Your pipeline fails halfway through. How do you make it idempotent so you can safely re-run it?",
+          "What is data lineage and why does it matter?",
+        ],
+        resources: [
+          { label: "Apache Spark — official quickstart", url: "https://spark.apache.org/docs/latest/quick-start.html" },
+          { label: "Confluent — Kafka fundamentals (free)", url: "https://developer.confluent.io/courses/apache-kafka/events/" },
+          { label: "Delta Lake — intro docs", url: "https://delta.io/learn/getting-started/" },
+        ],
+      },
+      {
+        level: 3,
+        label: "Senior / Interview Level",
+        summary: "Senior DE interviews focus on system design at scale, cost optimization, reliability, and handling data quality failures gracefully. They want architectural thinking, not just tool knowledge.",
+        concepts: [
+          { term: "Exactly-once semantics", plain: "A guarantee that each record in a streaming pipeline is processed exactly once — not skipped, not duplicated — even if machines fail. Hard to achieve; Kafka + Flink can provide this.", link: "https://www.confluent.io/blog/enabling-exactly-once-kafka-streams/" },
+          { term: "Schema evolution", plain: "What happens when you need to add or change a column in a dataset that thousands of downstream jobs depend on. Handled by schema registries (Avro/Protobuf) and table format features.", link: "https://docs.confluent.io/platform/current/schema-registry/fundamentals/index.html" },
+          { term: "SLA / data freshness", plain: "A Service Level Agreement — the commitment you make about how fresh and complete data will be. 'Dashboard updates within 30 minutes of an event' is an SLA. Missing it has business consequences.", link: "https://www.montecarlodata.com/blog-data-sla/" },
+          { term: "Data contracts", plain: "A formal agreement between the team producing data and the team consuming it — specifying schema, freshness, and quality guarantees. Prevents silent breakages when producers change their data.", link: "https://datacontract.com/" },
+        ],
+        questions: [
+          "Design a pipeline that ingests 10M events/day with exactly-once guarantees. What breaks first at scale?",
+          "A critical dashboard goes stale at 3am every Tuesday. Walk me through your debugging process.",
+          "How do you handle a schema change in a table that 50 downstream pipelines depend on?",
+          "What are the trade-offs between a Lambda architecture and a Kappa architecture?",
+        ],
+        resources: [
+          { label: "Data Engineering Design Patterns", url: "https://www.databricks.com/blog/2021/08/11/data-engineering-design-patterns.html" },
+          { label: "Kafka — exactly-once semantics deep dive", url: "https://www.confluent.io/blog/enabling-exactly-once-kafka-streams/" },
+          { label: "Data Contracts explainer", url: "https://datacontract.com/" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "rag",
+    title: "RAG & LLM Systems",
+    icon: "🤖",
+    tagline: "Building products on top of large language models",
+    levels: [
+      {
+        level: 1,
+        label: "The Basics",
+        summary: "LLMs (Large Language Models) like GPT-4 or Claude are AI models trained on massive amounts of text. They can answer questions, write code, summarize documents, and more. RAG (Retrieval-Augmented Generation) is a pattern for making LLMs answer questions about your specific data by first finding relevant documents and feeding them to the model.",
+        concepts: [
+          { term: "LLM (Large Language Model)", plain: "A neural network trained on billions of text examples that can generate human-like text, answer questions, and reason about language. Examples: GPT-4, Claude, Llama.", link: "https://www.cloudflare.com/learning/ai/what-is-large-language-model/" },
+          { term: "Prompt engineering", plain: "Writing instructions to an LLM carefully to get the output you want. Like giving clear directions to a very capable but literal assistant.", link: "https://www.promptingguide.ai/" },
+          { term: "RAG (Retrieval-Augmented Generation)", plain: "A pattern: (1) turn a user's question into a search query, (2) find relevant documents from a database, (3) include those documents in the LLM prompt, (4) LLM answers based on those documents. Solves the problem of LLMs not knowing your private data.", link: "https://www.pinecone.io/learn/retrieval-augmented-generation/" },
+          { term: "Embeddings / vector search", plain: "A way to convert text into a list of numbers (a vector) that captures its meaning. Similar texts get similar vectors. Vector databases (Pinecone, Weaviate, pgvector) let you search by meaning rather than exact keywords.", link: "https://www.pinecone.io/learn/vector-embeddings/" },
+        ],
+        questions: ["What is an LLM and what can it do?", "Why do you need RAG — why not just ask the LLM directly?"],
+        resources: [
+          { label: "Cloudflare — What is an LLM?", url: "https://www.cloudflare.com/learning/ai/what-is-large-language-model/" },
+          { label: "Pinecone — RAG explained", url: "https://www.pinecone.io/learn/retrieval-augmented-generation/" },
+          { label: "Prompting Guide (free)", url: "https://www.promptingguide.ai/" },
+        ],
+      },
+      {
+        level: 2,
+        label: "Intermediate",
+        summary: "At this level you can build a basic RAG system end-to-end: chunk documents, embed them, store in a vector DB, retrieve relevant chunks, and feed to an LLM. You understand the failure modes and know when RAG works vs. when you need fine-tuning.",
+        concepts: [
+          { term: "Chunking strategy", plain: "Documents are too long to fit in an LLM's context window, so you split them into chunks. How you chunk (fixed size? by sentence? by paragraph?) significantly affects retrieval quality.", link: "https://www.pinecone.io/learn/chunking-strategies/" },
+          { term: "Context window", plain: "The maximum amount of text an LLM can 'see' at once. GPT-4 Turbo has 128K tokens (~100K words). If your retrieved documents exceed this, you need to filter more aggressively.", link: "https://help.openai.com/en/articles/7127966-what-is-the-difference-between-the-gpt-4-models" },
+          { term: "Hallucination", plain: "When an LLM confidently states something that is false. RAG reduces this by giving the model ground-truth documents — but it doesn't eliminate it. Models can still misread or fabricate citations.", link: "https://www.ibm.com/topics/ai-hallucinations" },
+          { term: "Fine-tuning vs RAG", plain: "Fine-tuning trains the model on new data (expensive, changes the weights). RAG gives the model new data at inference time (cheaper, more flexible, easier to update). Usually try RAG first.", link: "https://www.anyscale.com/blog/fine-tuning-is-for-form-not-facts" },
+        ],
+        questions: [
+          "Build a system where users can ask questions about a company's internal documents. Walk me through your architecture.",
+          "When does RAG fail? What are the main failure modes?",
+          "Your RAG system retrieves the right documents but the LLM still gives wrong answers. What do you investigate?",
+        ],
+        resources: [
+          { label: "LangChain — RAG tutorial", url: "https://python.langchain.com/docs/tutorials/rag/" },
+          { label: "Pinecone — chunking strategies", url: "https://www.pinecone.io/learn/chunking-strategies/" },
+          { label: "Anyscale — fine-tuning vs RAG", url: "https://www.anyscale.com/blog/fine-tuning-is-for-form-not-facts" },
+        ],
+      },
+      {
+        level: 3,
+        label: "Senior / Interview Level",
+        summary: "Senior interviews on RAG/LLM systems test your ability to evaluate quality rigorously, optimize cost at scale, and reason about what can go wrong in production. They want to see you think beyond the happy path.",
+        concepts: [
+          { term: "Evaluation (evals)", plain: "How you measure whether your RAG system is actually giving correct, useful answers. Common metrics: faithfulness (is the answer supported by retrieved docs?), answer relevance, retrieval recall. Building good evals is often harder than building the system.", link: "https://docs.ragas.io/en/latest/concepts/metrics/index.html" },
+          { term: "Reranking", plain: "After vector search retrieves the top-20 candidates, a reranker model re-scores them more carefully and returns the best 3-5. Significantly improves precision at the cost of latency.", link: "https://www.cohere.com/blog/rerank" },
+          { term: "Hybrid search", plain: "Combining keyword search (BM25) with vector search. Keyword search catches exact matches (names, codes, IDs); vector search catches semantic meaning. Together they outperform either alone.", link: "https://www.elastic.co/blog/rrf-in-elasticsearch" },
+          { term: "Token cost optimization", plain: "LLM APIs charge per token. At scale (millions of queries/day) prompt costs dominate. Techniques: prompt compression, caching identical queries, using smaller models for simple tasks.", link: "https://www.anthropic.com/api" },
+        ],
+        questions: [
+          "How do you evaluate whether your RAG system is improving? What metrics do you track?",
+          "Your RAG system costs $50K/month in LLM API calls. How do you cut that by 80%?",
+          "Design a RAG system that needs to answer questions across 10 million documents in under 500ms.",
+          "What are the security risks of an LLM system with RAG? (Think: prompt injection, data leakage.)",
+        ],
+        resources: [
+          { label: "RAGAS — RAG evaluation framework", url: "https://docs.ragas.io/en/latest/" },
+          { label: "Cohere — reranking explained", url: "https://www.cohere.com/blog/rerank" },
+          { label: "Elastic — hybrid search", url: "https://www.elastic.co/blog/rrf-in-elasticsearch" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "fde",
+    title: "Forward Deployed Engineering",
+    icon: "🎯",
+    tagline: "Client-facing technical delivery — your actual background",
+    levels: [
+      {
+        level: 1,
+        label: "What FDE Is",
+        summary: "Forward Deployed Engineers (FDEs) embed directly with clients to build and deliver solutions fast — often in weeks, not months. Unlike traditional software engineers who work on a product in isolation, FDEs work directly with the customer, understand their messy real-world data, and ship working solutions in their environment. Companies like Palantir, Anduril, and Scale AI hire heavily for this. Your BAH and MITRE contracting background is directly relevant.",
+        concepts: [
+          { term: "FDE vs. traditional SWE", plain: "Traditional SWE builds a product for a theoretical user. FDE sits with a specific client, uses their data, deploys in their infrastructure, and often acts as the bridge between the client's domain experts and the technical solution.", link: "https://www.palantir.com/careers/teams/forward-deployed-software-engineering/" },
+          { term: "Rapid prototyping", plain: "Building a working demo or MVP in days to validate an approach before full development. FDEs live in this mode — show don't tell.", link: "https://www.nngroup.com/articles/ux-prototype-hi-lo-fidelity/" },
+          { term: "Client stakeholder management", plain: "Understanding who the decision-makers are, what they actually need (vs. what they say they need), and keeping them aligned as requirements inevitably change.", link: "https://hbr.org/2023/04/how-to-work-with-someone-who-has-very-different-political-views" },
+        ],
+        questions: ["Tell me about a time you delivered a technical solution directly to a non-technical stakeholder.", "How do you handle a client who keeps changing requirements mid-project?"],
+        resources: [
+          { label: "Palantir FDE — what the role involves", url: "https://www.palantir.com/careers/teams/forward-deployed-software-engineering/" },
+          { label: "Scale AI deployment team overview", url: "https://scale.com/careers" },
+        ],
+      },
+      {
+        level: 2,
+        label: "Technical Depth for FDE Roles",
+        summary: "FDE roles at companies like Palantir, Anduril, or Hex require both breadth (you can work across the stack) and depth (you can go deep on data engineering, ML, or infrastructure when needed). They test your ability to adapt to a new codebase and data environment quickly.",
+        concepts: [
+          { term: "Data ingestion & normalization", plain: "The first thing you do at a client is ingest their messy data (CSVs, databases, APIs) and normalize it into a consistent schema. This is 80% of FDE work and your entity resolution background is a superpower here.", link: "https://www.stitchdata.com/resources/data-normalization/" },
+          { term: "Ontology / data modeling", plain: "Designing the structure of objects and relationships in a system — what entities exist, what properties they have, how they connect. Palantir's core product (Foundry/AIP) is built around ontologies.", link: "https://www.palantir.com/platforms/foundry/" },
+          { term: "Dashboarding & data products", plain: "Turning pipeline outputs into something stakeholders can actually use — dashboards, reports, operational tools. FDEs often build the full stack: pipeline → API → UI.", link: "https://www.metabase.com/learn/getting-started/getting-started.html" },
+        ],
+        questions: [
+          "You arrive at a new client. They have 5 years of data in 3 different databases with no documentation. How do you start?",
+          "Build a data model for tracking supply chain shipments across multiple vendors. Walk me through your design.",
+          "A client's dashboard is showing wrong numbers. How do you debug it?",
+        ],
+        resources: [
+          { label: "dbt — data transformation in practice", url: "https://courses.getdbt.com/courses/fundamentals" },
+          { label: "Metabase — building data products", url: "https://www.metabase.com/learn/" },
+        ],
+      },
+      {
+        level: 3,
+        label: "Positioning Yourself as FDE/ML Hybrid",
+        summary: "Your strongest positioning is: 'I deliver ML/data solutions directly to clients, fast.' This is rare — most ML engineers can't work with clients, and most client-facing engineers can't build ML pipelines. Your entity resolution work, your Databricks/Spark stack, and your contracting background are all directly sellable as FDE strengths.",
+        concepts: [
+          { term: "Your entity resolution work as FDE story", plain: "Entity resolution (matching 5.8M records across 5 datasets using probabilistic methods) is exactly the kind of hard, messy, client-relevant data problem FDEs solve. Frame it as: 'I took fragmented government data sources and built a unified entity graph that enabled analysts to work across datasets they previously couldn't connect.'", link: "https://www.databricks.com/glossary/entity-resolution" },
+          { term: "Speed of delivery", plain: "FDE interviews probe: how fast can you ship? Be ready with examples of 2-week sprints, demos built in a day, and MVP-first thinking. They don't want to hear about 6-month projects with committee approvals.", link: "https://www.atlassian.com/agile/scrum/sprints" },
+        ],
+        questions: [
+          "Why do you want to be client-facing rather than on a product team? (Be honest — they'll detect a non-answer.)",
+          "Describe the fastest you've ever shipped a working data product from scratch.",
+          "How do you balance building the 'right' solution vs. building what the client asked for?",
+        ],
+        resources: [
+          { label: "Palantir FDE interview prep Reddit thread", url: "https://www.reddit.com/r/cscareerquestions/search/?q=palantir+forward+deployed" },
+          { label: "Databricks — entity resolution guide", url: "https://www.databricks.com/blog/2021/05/24/machine-learning-based-record-linkage-at-scale-with-splink.html" },
+        ],
+      },
+    ],
+  },
+];
+
+// ── Learning Tab Component ─────────────────────────────────────────────────────
+function LearningTab() {
+  const [activeTopic, setActiveTopic] = useState(LEARN_TOPICS[0].id);
+  const [activeLevel, setActiveLevel] = useState(1);
+  const topic = LEARN_TOPICS.find(t => t.id === activeTopic);
+  const levelData = topic?.levels.find(l => l.level === activeLevel);
+
+  return (
+    <div style={{ animation: "fadeIn 0.4s ease" }}>
+      <div style={{ marginBottom: 22 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 700, fontFamily: "Georgia,serif", color: "#f1f5f9", letterSpacing: "-0.02em" }}>Learning Lab</h1>
+        <p style={{ color: "#475569", fontSize: 13, marginTop: 4 }}>Leveled study guides for the roles you're targeting — from first principles to senior interview depth</p>
+      </div>
+
+      {/* Topic selector */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
+        {LEARN_TOPICS.map(t => (
+          <button key={t.id} onClick={() => { setActiveTopic(t.id); setActiveLevel(1); }}
+            style={{ background: activeTopic === t.id ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "#0f172a", border: `1px solid ${activeTopic === t.id ? "#6366f1" : "#1e293b"}`, color: activeTopic === t.id ? "white" : "#64748b", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 7 }}>
+            <span>{t.icon}</span> {t.title}
+          </button>
+        ))}
+      </div>
+
+      {topic && (
+        <div>
+          {/* Tagline */}
+          <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 12, padding: "14px 20px", marginBottom: 20 }}>
+            <div style={{ fontSize: 13, color: "#94a3b8" }}>{topic.tagline}</div>
+          </div>
+
+          {/* Level selector */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 24, alignItems: "center" }}>
+            <span style={{ fontSize: 11, color: "#475569", fontWeight: 700, letterSpacing: "0.1em", marginRight: 4 }}>LEVEL:</span>
+            {topic.levels.map(l => (
+              <button key={l.level} onClick={() => setActiveLevel(l.level)}
+                style={{ background: activeLevel === l.level ? "#6366f133" : "transparent", border: `1px solid ${activeLevel === l.level ? "#6366f1" : "#1e293b"}`, color: activeLevel === l.level ? "#818cf8" : "#475569", borderRadius: 8, padding: "7px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                {l.level} — {l.label}
+              </button>
+            ))}
+          </div>
+
+          {levelData && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
+              {/* Summary */}
+              <div style={{ background: "#0f172a", border: "1px solid #6366f133", borderRadius: 12, padding: "20px 24px" }}>
+                <div style={{ fontSize: 11, color: "#6366f1", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 10 }}>OVERVIEW</div>
+                <p style={{ color: "#cbd5e1", fontSize: 14, lineHeight: 1.7, margin: 0 }}>{levelData.summary}</p>
+              </div>
+
+              {/* Key concepts with links */}
+              <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 12, padding: "20px 24px" }}>
+                <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 14 }}>KEY CONCEPTS</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {levelData.concepts.map(c => (
+                    <div key={c.term} style={{ borderLeft: "2px solid #6366f133", paddingLeft: 14 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{c.term}</span>
+                        <a href={c.link} target="_blank" rel="noopener noreferrer"
+                          style={{ fontSize: 10, color: "#818cf8", border: "1px solid #6366f133", borderRadius: 4, padding: "1px 6px", textDecoration: "none", fontWeight: 600 }}>
+                          read more →
+                        </a>
+                      </div>
+                      <p style={{ color: "#64748b", fontSize: 13, margin: 0, lineHeight: 1.6 }}>{c.plain}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Practice questions */}
+              <div style={{ background: "#0f172a", border: "1px solid #8b5cf633", borderRadius: 12, padding: "20px 24px" }}>
+                <div style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 14 }}>PRACTICE QUESTIONS</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {levelData.questions.map((q, i) => (
+                    <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                      <span style={{ color: "#8b5cf6", fontWeight: 700, fontSize: 13, flexShrink: 0, marginTop: 1 }}>Q{i + 1}</span>
+                      <span style={{ color: "#94a3b8", fontSize: 13, lineHeight: 1.6 }}>{q}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Resources */}
+              <div style={{ background: "#0f172a", border: "1px solid #22c55e22", borderRadius: 12, padding: "20px 24px" }}>
+                <div style={{ fontSize: 11, color: "#22c55e", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 14 }}>GO DEEPER — RESOURCES</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {levelData.resources.map((r, i) => (
+                    <a key={i} href={r.url} target="_blank" rel="noopener noreferrer"
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#060d18", border: "1px solid #1e293b", borderRadius: 8, textDecoration: "none", transition: "all 0.2s" }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = "#22c55e55"; e.currentTarget.style.background = "#0f1f17"; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e293b"; e.currentTarget.style.background = "#060d18"; }}>
+                      <span style={{ fontSize: 14 }}>📖</span>
+                      <span style={{ color: "#94a3b8", fontSize: 13, fontWeight: 500 }}>{r.label}</span>
+                      <span style={{ marginLeft: "auto", color: "#22c55e", fontSize: 11, fontWeight: 700 }}>Open →</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function JobSearch() {
   const [tab, setTab] = useState("scanner");
   const [jobs, setJobs] = useState(DEFAULT_JOBS);
@@ -542,7 +930,14 @@ export default function JobSearch() {
     setLoading({});
   };
 
-  const addJob = j => { const u = [...jobs, { ...j, _manual: true }]; setJobs(u); lsSave("vt-jobs", u); };
+  const addJob = j => {
+    const newJob = { ...j, _manual: true };
+    const u = [...jobs, newJob];
+    setJobs(u); lsSave("vt-jobs", u);
+    // Auto-track as Applied — only reason to manually add a job
+    const newTracked = { ...tracked, [newJob.id]: { status: "Applied", note: "", date: new Date().toISOString() } };
+    setTracked(newTracked); lsSave("vt-tracked", newTracked);
+  };
   const deleteJob = id => {
     const u = jobs.filter(j => j.id !== id); setJobs(u); lsSave("vt-jobs", u);
     const na = { ...analyses }; delete na[id]; setAnalyses(na); lsSave("vt-analyses", na);
@@ -572,7 +967,7 @@ export default function JobSearch() {
     .filter(j => (analyses[j.id]?.score || 0) >= scoreFilter)
     .sort((a, b) => (analyses[b.id]?.score || 0) - (analyses[a.id]?.score || 0));
 
-  const tabs = [["scanner", "⚡ Scanner"], ["picks", `✨ Smart Picks${likes.length + passes.length > 0 ? ` (${likes.length}👍)` : ""}`], ["tracker", `📋 Tracker${trackedCount > 0 ? ` (${trackedCount})` : ""}`], ["boards", "🔗 Boards"]];
+  const tabs = [["scanner", "⚡ Scanner"], ["picks", `✨ Smart Picks${likes.length + passes.length > 0 ? ` (${likes.length}👍)` : ""}`], ["tracker", `📋 Tracker${trackedCount > 0 ? ` (${trackedCount})` : ""}`], ["boards", "🔗 Boards"], ["learn", "📚 Learn"]];
 
   return (
     <div>
@@ -690,6 +1085,13 @@ export default function JobSearch() {
               <p style={{ color: "#475569", fontSize: 13, marginTop: 4 }}>Track every role from first save to offer</p>
             </div>
             <TrackerView jobs={jobs} tracked={tracked} onStatusChange={handleStatus} onNoteChange={handleNote} />
+          </div>
+        )}
+
+        {/* LEARN */}
+        {tab === "learn" && (
+          <div style={{ animation: "fadeIn 0.4s ease" }}>
+            <LearningTab />
           </div>
         )}
 
