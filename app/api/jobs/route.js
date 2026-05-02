@@ -4,25 +4,29 @@ export async function GET() {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey) return NextResponse.json({ error: "RAPIDAPI_KEY not configured in Vercel environment variables." }, { status: 500 });
 
-  // Balanced queries: DE, ML, FDE/hybrid, big tech — 1 page each = 5 API calls/rescan
+  // Tighter queries targeting senior/staff-level roles at tech companies paying $180K+
   const queries = [
-    "senior data engineer remote Python Spark Databricks",
-    "senior data engineer remote Kafka streaming AWS",
-    "senior machine learning engineer remote Python NLP",
-    "forward deployed engineer remote data ML",
-    "senior ML engineer data platform remote fintech startup",
+    "staff data engineer remote Python Spark $200K",
+    "senior data engineer remote Databricks Kafka $180K",
+    "senior machine learning engineer remote Python $200K",
+    "senior ML engineer NLP LLM remote tech company",
+    "senior data engineer remote fintech startup equity",
   ];
 
   const allJobs = [];
   const seen = new Set();
   const errors = [];
 
-  // Companies to exclude
-  const blockedCompanies = ["capital one", "booz allen", "leidos", "saic", "mitre corporation", "raytheon", "general dynamics", "northrop grumman", "l3harris", "caci"];
+  const blockedCompanies = ["capital one", "booz allen", "leidos", "saic", "mitre corporation", "raytheon", "general dynamics", "northrop grumman", "l3harris", "caci", "peraton", "maximus", "accenture federal", "deloitte federal"];
 
   const govKeywords = ["clearance required","secret clearance","top secret","dod","department of defense","intelligence community","cia","nsa","dhs","federal agency"];
-  const techKeywords = ["Python","Spark","Kafka","NLP","LLM","Transformers","PyTorch","TensorFlow","Elasticsearch","AWS","GCP","Azure","Databricks","Kubernetes","Docker","dbt","Airflow","Flink","Neo4j","NER","MLOps","Hugging Face","RAG","Snowflake","Scala","Redis","Pinecone","Trino","Iceberg","Redshift","BigQuery","FastAPI","Pydantic","Pandas","NumPy"];
-  const skipTitles = ["intern","junior","jr.","associate engineer","manager","director","vp ","vice president","recruiter","sales","marketing","designer","product manager","analyst"];
+
+  // Keywords that suggest a low-paying role (staffing agencies, junior roles)
+  const lowPaySignals = ["contract to hire", "w2 only", "c2c", "staffing", "recruiting agency", "entry level", "0-2 years", "1-2 years", "1+ year", "2+ years experience"];
+
+  const skipTitles = ["intern","junior","jr.","associate engineer","manager","director","vp ","vice president","recruiter","sales","marketing","designer","product manager","data analyst","business analyst","bi developer","tableau","power bi"];
+
+  const techKeywords = ["Python","Spark","Kafka","NLP","LLM","Transformers","PyTorch","TensorFlow","Elasticsearch","AWS","GCP","Azure","Databricks","Kubernetes","Docker","dbt","Airflow","Flink","Neo4j","NER","MLOps","Hugging Face","RAG","Snowflake","Scala","Redis","Pinecone","Trino","Iceberg","Redshift","BigQuery","FastAPI","Pandas","NumPy"];
 
   for (const q of queries) {
     try {
@@ -56,16 +60,16 @@ export async function GET() {
         const companyLower = (j.employer_name || "").toLowerCase();
         const fullText = titleLower + " " + descLower + " " + companyLower;
 
-        // Skip blocked companies
         if (blockedCompanies.some(c => companyLower.includes(c))) continue;
-
-        // Skip irrelevant titles
         if (skipTitles.some(s => titleLower.includes(s))) continue;
+        if (lowPaySignals.some(s => fullText.includes(s))) continue;
 
-        // Flag gov roles (don't skip — let scorer penalize)
+        // Hard salary filter at API level — skip if we KNOW it's under $150K
+        if (j.job_max_salary && j.job_max_salary < 150000) continue;
+
         const isGov = govKeywords.some(k => fullText.includes(k));
 
-        // Salary
+        // Salary string
         let salary = "Not listed";
         if (j.job_min_salary && j.job_max_salary) {
           const fmt = v => `$${Math.round(v / 1000)}K`;
@@ -74,7 +78,6 @@ export async function GET() {
           salary = `$${Math.round(j.job_min_salary / 1000)}K+`;
         }
 
-        // Role type label
         const isDE = titleLower.includes("data engineer") || ["spark","kafka","dbt","airflow","databricks","etl","pipeline"].some(k => fullText.includes(k));
         const isML = titleLower.includes("machine learning") || titleLower.includes("ml engineer") || ["pytorch","tensorflow","llm","nlp","model training"].some(k => fullText.includes(k));
         const isFDE = titleLower.includes("forward deployed") || titleLower.includes("solutions engineer") || titleLower.includes("field engineer");

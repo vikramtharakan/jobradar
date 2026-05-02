@@ -960,9 +960,28 @@ export default function JobSearch() {
   const govCount = Object.values(analyses).filter(a => a.gov_flag).length;
 
   const hiddenStatuses = ["Applied", "Phone Screen", "Interview", "Coding Interview", "Final Round", "Offer", "Offer Declined", "Rejected - No Response", "Rejected - Pre-Interview", "Rejected - After Phone Screen", "Rejected - After Coding", "Rejected - After Final Round", "Pass"];
+
+  // Parse max salary from string like "$120K–$275K" or "$160K–$210K + equity"
+  const parseMaxSalary = s => {
+    if (!s || s === "Not listed") return null;
+    const nums = s.replace(/[^0-9K]/gi, " ").trim().split(/\s+/).map(n => {
+      if (n.toUpperCase().endsWith("K")) return parseInt(n) * 1000;
+      return parseInt(n);
+    }).filter(n => !isNaN(n) && n > 1000);
+    return nums.length ? Math.max(...nums) : null;
+  };
+
+  const SALARY_FLOOR = 180000;
+
   const filtered = jobs
     .filter(j => !passes.find(p => p.id === j.id))
     .filter(j => !hiddenStatuses.includes(tracked[j.id]?.status))
+    // Hard salary floor — hide jobs where we KNOW max pay is under $180K
+    .filter(j => {
+      const max = parseMaxSalary(j.salary);
+      if (max === null) return true; // keep "Not listed" — can't confirm low
+      return max >= SALARY_FLOOR;
+    })
     .filter(j => filter === "All" || analyses[j.id]?.verdict === filter)
     .filter(j => (analyses[j.id]?.score || 0) >= scoreFilter)
     .sort((a, b) => (analyses[b.id]?.score || 0) - (analyses[a.id]?.score || 0));
@@ -999,7 +1018,7 @@ export default function JobSearch() {
                 </span>
               </div>
               <h1 style={{ fontSize: 26, fontWeight: 700, fontFamily: "Georgia,serif", color: "#f1f5f9", letterSpacing: "-0.02em" }}>Job Scanner</h1>
-              <p style={{ color: "#475569", fontSize: 13, marginTop: 4 }}>Remote · Senior ML/DE · $200K+ · Private sector · Any industry · 👍👎 to teach Smart Picks</p>
+              <p style={{ color: "#475569", fontSize: 13, marginTop: 4 }}>Remote · Senior ML/DE/FDE · $180K+ hard floor · Private sector · 👍👎 to teach Smart Picks</p>
             </div>
 
             {hasScanned && (
@@ -1080,9 +1099,42 @@ export default function JobSearch() {
         {/* TRACKER */}
         {tab === "tracker" && (
           <div style={{ animation: "fadeIn 0.4s ease" }}>
-            <div style={{ marginBottom: 22 }}>
-              <h1 style={{ fontSize: 26, fontWeight: 700, fontFamily: "Georgia,serif", color: "#f1f5f9", letterSpacing: "-0.02em" }}>Application Tracker</h1>
-              <p style={{ color: "#475569", fontSize: 13, marginTop: 4 }}>Track every role from first save to offer</p>
+            <div style={{ marginBottom: 22, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+              <div>
+                <h1 style={{ fontSize: 26, fontWeight: 700, fontFamily: "Georgia,serif", color: "#f1f5f9", letterSpacing: "-0.02em" }}>Application Tracker</h1>
+                <p style={{ color: "#475569", fontSize: 13, marginTop: 4 }}>Track every role from first save to offer</p>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button onClick={() => {
+                  const data = { jobs, tracked, likes, passes, exportedAt: new Date().toISOString() };
+                  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a"); a.href = url;
+                  a.download = `jobradar-backup-${new Date().toISOString().slice(0,10)}.json`;
+                  a.click(); URL.revokeObjectURL(url);
+                }} style={{ background: "#0f172a", border: "1px solid #22c55e44", color: "#22c55e", borderRadius: 8, padding: "8px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  ↓ Export Backup
+                </button>
+                <label style={{ background: "#0f172a", border: "1px solid #6366f144", color: "#818cf8", borderRadius: 8, padding: "8px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  ↑ Import Backup
+                  <input type="file" accept=".json" style={{ display: "none" }} onChange={e => {
+                    const file = e.target.files[0]; if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = ev => {
+                      try {
+                        const data = JSON.parse(ev.target.result);
+                        if (data.jobs) { setJobs(data.jobs); lsSave("vt-jobs", data.jobs); }
+                        if (data.tracked) { setTracked(data.tracked); lsSave("vt-tracked", data.tracked); }
+                        if (data.likes) { setLikes(data.likes); lsSave("vt-likes", data.likes); }
+                        if (data.passes) { setPasses(data.passes); lsSave("vt-passes", data.passes); }
+                        alert("Backup restored successfully!");
+                      } catch { alert("Invalid backup file."); }
+                    };
+                    reader.readAsText(file);
+                    e.target.value = "";
+                  }} />
+                </label>
+              </div>
             </div>
             <TrackerView jobs={jobs} tracked={tracked} onStatusChange={handleStatus} onNoteChange={handleNote} />
           </div>

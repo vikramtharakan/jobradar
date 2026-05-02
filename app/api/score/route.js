@@ -1,55 +1,81 @@
 import { NextResponse } from "next/server";
 
-const RESUME = `Senior ML/Data Engineer, 5+ years experience.
-Skills: Python, Java, Scala, SQL, Apache Spark, Databricks, Apache NiFi, Kafka, AWS, Docker, Kubernetes,
-Elasticsearch, Neo4j, JanusGraph, Redis, Hugging Face Transformers, Scikit-Learn, Keras/TensorFlow, LLMs,
-NER, Entity Resolution (Fellegi-Sunter), Deep Metric Learning, ETL pipelines, geospatial ML.
-Background: Large-scale data fusion platforms, NLP pipelines, graph databases, unstructured data at scale.
-Current: ML Engineer at Booz Allen Hamilton (actively leaving government/defense sector).
-Previous: Deep Learning Engineer at MITRE.
-Education: B.S. Physics, UCSB. TS/SCI clearance (not using it).
-Location: NYC. Wants: Remote-first. Hybrid only if exceptional fit + $200K+.
-Target: Senior ML Engineer or Senior Data Engineer. Full-time only.
-Salary floor: $200K base. Ideal: $225K+.
-Open to: ANY industry except government contracting. Any stage.
-Preference: Private sector, product companies, startups welcome.`;
-
 export async function POST(req) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return NextResponse.json({ error: "No API key" }, { status: 500 });
-
   const { job, signals } = await req.json();
-  const tags = Array.isArray(job.tags) ? job.tags : (job.tags || "").split(",").map(t => t.trim()).filter(Boolean);
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return NextResponse.json({ score: 0, verdict: "Error", reasons: [], gaps: [], one_liner: "ANTHROPIC_API_KEY not set.", gov_flag: false });
 
-  let signalsBlock = "";
-  if (signals && (signals.liked.length || signals.passed.length)) {
-    signalsBlock = `\nLearned preferences from candidate's past ratings:
-Liked jobs: ${signals.liked.map(j => `${j.title} at ${j.company} (${j.tags?.join(", ")})`).join("; ") || "none yet"}
-Passed jobs: ${signals.passed.map(j => `${j.title} at ${j.company} — reason: ${j.reason || "not given"}`).join("; ") || "none yet"}
-Adjust score based on these patterns.`;
+  const govKeywords = ["clearance", "secret", "top secret", "dod", "department of defense", "intelligence", "cia", "nsa", "dhs", "federal agency", "booz allen", "leidos", "saic", "mitre", "raytheon"];
+  const gov_flag = govKeywords.some(k => (job.title + " " + job.company + " " + job.description).toLowerCase().includes(k));
+
+  const likedSummary = signals?.liked?.length
+    ? signals.liked.map(j => `- ${j.title} at ${j.company} (tags: ${j.tags?.join(", ")})`).join("\n")
+    : "None yet";
+  const passedSummary = signals?.passed?.length
+    ? signals.passed.map(j => `- ${j.title} at ${j.company} (reason: ${j.reason})`).join("\n")
+    : "None yet";
+
+  const prompt = `You are scoring a job listing for a senior ML/Data Engineer with the following profile:
+
+CANDIDATE PROFILE:
+- ~6 years experience: Deep Learning Engineer at MITRE, then ML/AI Engineer L3 at Booz Allen Hamilton
+- Core stack: Python, Databricks, Spark, Kafka, NLP, AWS, Neo4j/JanusGraph, Elasticsearch, NiFi
+- Specialized in: probabilistic entity resolution (Splink, Fellegi-Sunter), large-scale data pipelines, graph databases, ML infrastructure
+- Background leans FDE (forward deployed engineering) — delivered solutions directly to clients, rapid prototyping, messy real-world data
+- Learning: MLOps, RAG systems, LLM fine-tuning (not yet expert level)
+- HARD REQUIREMENT: Total compensation must be $180,000+ (currently earning ~$200K). Any role clearly paying under $180K is a dealbreaker.
+- HARD REQUIREMENT: Remote only. No relocation.
+- HARD REQUIREMENT: Private sector only. No government contractors.
+
+LIKED JOBS (what the candidate responded well to):
+${likedSummary}
+
+PASSED JOBS (what the candidate rejected):
+${passedSummary}
+
+JOB TO SCORE:
+Title: ${job.title}
+Company: ${job.company}
+Salary: ${job.salary || "Not listed"}
+Tags: ${Array.isArray(job.tags) ? job.tags.join(", ") : job.tags}
+Description: ${job.description?.slice(0, 600)}
+Gov flag: ${gov_flag}
+
+SCORING RULES:
+- If salary is clearly listed and under $180K: score must be 0-20, verdict "Weak Match", one_liner must mention the salary issue
+- If gov contractor or requires clearance: score 0-30, gov_flag true
+- If missing core stack entirely (no Python, no data engineering, no ML): score 0-40
+- Strong Match (80-100): excellent salary, remote, strong stack overlap, private sector tech company
+- Good Match (65-79): good fit with minor gaps
+- Partial Match (40-64): relevant but missing key requirements
+- Weak Match (0-39): dealbreakers present
+
+Respond ONLY with valid JSON, no markdown:
+{
+  "score": <0-100>,
+  "verdict": "<Strong Match|Good Match|Partial Match|Weak Match>",
+  "reasons": ["<why it fits, 2-3 points>"],
+  "gaps": ["<what's missing or concerning, 1-3 points>"],
+  "one_liner": "<one punchy sentence summarizing fit>",
+  "gov_flag": <true|false>
+}`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 400,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || "{}";
+    const clean = text.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(clean);
+    return NextResponse.json({ ...parsed, gov_flag: parsed.gov_flag || gov_flag });
+  } catch (e) {
+    return NextResponse.json({ score: 0, verdict: "Error", reasons: [], gaps: [], one_liner: "Scoring failed: " + e.message, gov_flag });
   }
-
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514", max_tokens: 800,
-      messages: [{ role: "user", content: `Job-fit analyzer. Return ONLY valid JSON, no markdown.
-
-Candidate: ${RESUME}
-${signalsBlock}
-
-Job:
-Title: ${job.title}, Company: ${job.company} (${job.industry}, ${job.stage})
-Salary: ${job.salary}, Remote: ${job.remote}, Tags: ${tags.join(", ")}
-Description: ${job.description}
-
-Rules: gov/defense → cap at 40, gov_flag=true. Private product co → boost. NLP/graph/LLMs/Spark/ES/ETL → boost. Salary <$200K → cap at 65. Remote → positive. Consulting model → mild negative.
-
-Return: {"score":<0-100>,"verdict":"<Strong Match|Good Match|Partial Match|Weak Match>","reasons":["r1","r2","r3"],"gaps":["gap or empty"],"one_liner":"<punchy sentence>","gov_flag":<true|false>}` }]
-    })
-  });
-  const data = await res.json();
-  const text = data.content?.map(i => i.text || "").join("") || "{}";
-  return NextResponse.json(JSON.parse(text.replace(/```json|```/g, "").trim()));
 }
